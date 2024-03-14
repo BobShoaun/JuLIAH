@@ -1,0 +1,70 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Welcome to JuLIAH.">
+  <main>
+    <h1>This is <span class="text-gradient">JuLIAH</span></h1>
+
+    <h2>Sound Recordings</h2>
+
+    <ul>
+      <li>Recordings: <a href="/recordings">Recordings</a></li>
+      <li>Recordings: <a href="/recordings">Recordings</a></li>
+      <li>Recordings: <a href="/recordings">Recordings</a></li>
+      <li>Recordings: <a href="/recordings">Recordings</a></li>
+    </ul>
+
+    <button id="blink">PRESS ME TO BLINK LED</button>
+  </main>
+</Layout>
+
+<script>
+  import mqtt from "mqtt";
+  const client = mqtt.connect("ws://localhost:8080"); // create a client
+
+  client.on("connect", () => {
+    console.log("Connected to MQTT Broker");
+  });
+
+  const blinkButton = document.querySelector("#blink");
+  blinkButton.addEventListener("click", () => {
+    console.log("Sending Blink topic");
+    client.publish("blink", "blink the led now!");
+  });
+</script>
+
+<style>
+  main {
+    margin: auto;
+    padding: 1rem;
+    width: 800px;
+    max-width: calc(100% - 2rem);
+    color: white;
+    font-size: 20px;
+    line-height: 1.6;
+  }
+  .astro-a {
+    position: absolute;
+    top: -32px;
+    left: 50%;
+    transform: translatex(-50%);
+    width: 220px;
+    height: auto;
+    z-index: -1;
+  }
+  h1 {
+    font-size: 4rem;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    margin-bottom: 1em;
+  }
+  .text-gradient {
+    background-image: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-size: 400%;
+    background-position: 0%;
+  }
+</style>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- <script src="client.js" type="module"></script> -->
+
+  <title>JuLIAH - Just Leave It At Home</title>
+</head>
+
+<body>
+
+  <h1>HELLO JULIAH</h1>
+
+  <h1>Sound Recordings</h1>
+
+  <ul>
+    <li>this</li>
+    <li>is</li>
+    <li>a</li>
+    <li>sound</li>
+    <li>recording</li>
+  </ul>
+
+  <button>PRESS ME TO BLINK LED</button>
+
+</body>
+
+<script>
+  // import mqtt from "mqtt"; // import namespace "mqtt"
+  // // let client = mqtt.connect("mqtt://test.mosquitto.org"); // create a client
+  // let client = mqtt.connect("mqtt://localhost"); // create a client
+
+  // client.on("connect", () => {
+  //   console.log("connecting");
+
+  //   client.subscribe("presence", (err) => {
+  //     if (!err) {
+  //       console.log("publishing");
+  //       client.publish("presence", "Hello mqtt fdfd");
+  //     }
+  //   });
+  // });
+
+  // client.on("message", (topic, message) => {
+  //   // message is Buffer
+  //   console.log(message.toString());
+  //   client.end();
+  // });
+
+  const mqtt = require("mqtt");
+  const client = mqtt.connect("mqtt://test.mosquitto.org");
+
+  client.on("connect", () => {
+    client.subscribe("presence", (err) => {
+      if (!err) {
+        client.publish("presence", "Hello mqtt");
+      }
+    });
+  });
+
+  client.on("message", (topic, message) => {
+    // message is Buffer
+    console.log(message.toString());
+    client.end();
+  });
+
+</script>
+
+</html>
