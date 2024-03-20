@@ -26,3 +26,13 @@ mosquitto_pub -h localhost -t test -m "hello world"
 
 cd client-web
 npm run dev
+
+# Testing
+
+### publish mqtt for sound topic
+
+mosquitto_pub -h test.mosquitto.org -t juliah/sound -m "{ \"timestamp\":10000000, \"peakVolume\": 43.4, \"audio\": \"\" }"
+
+### online mqtt client
+
+https://testclient-cloud.mqtt.cool/

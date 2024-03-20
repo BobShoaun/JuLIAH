@@ -1,70 +1,89 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import SoundRecording from "../components/SoundRecording.astro";
+
+const array = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 ---
 
 <Layout title="Welcome to JuLIAH.">
-  <main>
-    <h1>This is <span class="text-gradient">JuLIAH</span></h1>
+  <main
+    class="bg-gray-100 p-5 lg:py-14 lg:px-10 h-screen
+    grid lg:grid-cols-[3fr_minmax(10em,1fr)] lg:grid-rows-[auto_auto]
+    grid-cols-1 grid-rows-[auto_auto]
+    gap-x-10 gap-y-5"
+  >
+    <h1 class="text-2xl lg:text-5xl font-bold lg:col-span-2 text-gray-900">
+      JuLIAH <span class="text-gray-600 font-light">Just Leave It At Home</span>
+    </h1>
 
-    <h2>Sound Recordings</h2>
+    <section class="h-full flex flex-col overflow-hidden">
+      <h2 class="text-xl font-medium">Sound Recordings</h2>
+      <p class="mt-1">
+        Sounds heard beyond a certain volume will be recorded and shown here.
+      </p>
 
-    <ul>
-      <li>Recordings: <a href="/recordings">Recordings</a></li>
-      <li>Recordings: <a href="/recordings">Recordings</a></li>
-      <li>Recordings: <a href="/recordings">Recordings</a></li>
-      <li>Recordings: <a href="/recordings">Recordings</a></li>
-    </ul>
+      <ul class="mt-5 overflow-auto -ml-4 flex flex-col gap-2">
+        {
+          array.map(() => (
+            <li>
+              <SoundRecording />
+            </li>
+          ))
+        }
+      </ul>
+    </section>
 
-    <button id="blink">PRESS ME TO BLINK LED</button>
+    <section class="flex flex-col self-center">
+      <button
+        id="blink"
+        class="bg-red-400 rounded-xl block lg:aspect-square p-5
+        shadow-lg text-white font-bold uppercase text-xl lg:text-4xl
+        hover:bg-red-500 focus:bg-red-500 active:bg-red-800 transition-all hover:shadow-xl focus:shadow-xl"
+      >
+        Distract
+      </button>
+      <p class="text-center mt-2 lg:mt-5 text-gray-700">
+        Press the big red button above to blink the LED on the device and cause
+        a distraction!
+      </p>
+    </section>
   </main>
 </Layout>
 
 <script>
   import mqtt from "mqtt";
-  const client = mqtt.connect("ws://localhost:8080"); // create a client
+  // const client = mqtt.connect("ws://localhost:8080"); // create a client
+  const client = mqtt.connect("ws://test.mosquitto.org:8080"); // create a client
+
+  const blinkTopic = "blink";
+  const soundTopic = "sound";
+
+  let soundRecordings = [];
 
   client.on("connect", () => {
     console.log("Connected to MQTT Broker");
+
+    client.subscribe(soundTopic, (err) => {
+      if (err) console.log("Error subscribing!", err);
+    });
+  });
+
+  client.on("message", (topic, message) => {
+    // message is Buffer
+    console.log(message.toString());
+    console.log(topic);
+
+    soundRecordings.push({ time: Date.now(), peakVolume: 100 });
+    console.log(soundRecordings);
+
+    // client.end();
   });
 
   const blinkButton = document.querySelector("#blink");
   blinkButton.addEventListener("click", () => {
     console.log("Sending Blink topic");
-    client.publish("blink", "blink the led now!");
+    client.publish(blinkTopic, "blink the led now!");
   });
 </script>
 
-<style>
-  main {
-    margin: auto;
-    padding: 1rem;
-    width: 800px;
-    max-width: calc(100% - 2rem);
-    color: white;
-    font-size: 20px;
-    line-height: 1.6;
-  }
-  .astro-a {
-    position: absolute;
-    top: -32px;
-    left: 50%;
-    transform: translatex(-50%);
-    width: 220px;
-    height: auto;
-    z-index: -1;
-  }
-  h1 {
-    font-size: 4rem;
-    font-weight: 700;
-    line-height: 1;
-    text-align: center;
-    margin-bottom: 1em;
-  }
-  .text-gradient {
-    background-image: var(--accent-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-size: 400%;
-    background-position: 0%;
-  }
-</style>
+<style></style>

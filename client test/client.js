@@ -1,6 +1,6 @@
 import mqtt from "mqtt"; // import namespace "mqtt"
-// let client = mqtt.connect("mqtt://test.mosquitto.org"); // create a client
-let client = mqtt.connect("mqtt://localhost"); // create a client
+const client = mqtt.connect("mqtt://test.mosquitto.org"); // create a client
+// let client = mqtt.connect("mqtt://localhost"); // create a client
 
 client.on("connect", () => {
   console.log("connecting");
