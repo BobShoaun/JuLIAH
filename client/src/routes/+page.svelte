@@ -37,11 +37,15 @@
 
       console.log(topic);
 
-      // { \"timestamp\": 10000000, \"peakVolume\": 43.4, \"audio\": \"\" }
+      // { \"timestamp\": 100000000, \"peakVolume\": 43.4, \"audio\": \"\" }
       const recording = {
+        // timestamp: jsonMessage.timestamp,
         timestamp: Date.now(),
+        // peakVolume: jsonMessage.peakVolume,
         peakVolume: Math.random() * 100,
-        audio: "https://www2.cs.uic.edu/~i101/SoundFiles/StarWars60.wav",
+        audio:
+          jsonMessage.audio ||
+          "https://www2.cs.uic.edu/~i101/SoundFiles/StarWars60.wav",
       };
 
       soundRecordings = [recording, ...soundRecordings];
