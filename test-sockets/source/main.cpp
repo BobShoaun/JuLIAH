@@ -14,15 +14,20 @@
  * limitations under the License.
  */
 
+#include "MQTTClient.h"
 #include "mbed.h"
 #include "wifi_helper.h"
 #include "mbed-trace/mbed_trace.h"
 
-// MQTT stuff
-#include "MQTTNetwork.h"
-#include "MQTTmbed.h"
-#include "MQTTClient.h"
+// // MQTT stuff
+// #include "MQTTNetwork.h"
+// #include "MQTTmbed.h"
+// #include "MQTTClient.h"
 int arrivedcount = 0;
+
+// newest MQTT stuff
+#include <MQTTClientMbedOs.h>
+
 
 #if MBED_CONF_APP_USE_TLS_SOCKET
 #include "root_ca_cert.h"
@@ -63,6 +68,7 @@ public:
         }
     }
 
+
     void run()
     {
         if (!_net) {
@@ -92,75 +98,59 @@ public:
 
         print_network_info();
 
-        // new MQTT stuff
-
-        // constants
-        MQTTNetwork mqttNetwork(_net);
-        MQTT::Client<MQTTNetwork, Countdown> client(mqttNetwork);
-        // **** NEED TO SWITCH HOSTNAME TO IP
-        const char* hostname = "192.168.5.13";
+        // newest MQTT stuff
+        TCPSocket socket;
+        MQTTClient client(&socket);
+        socket.open(_net);
+        // d
+        // personal
+            // const char* hostname = "192.168.5.13";
+        const char* hostname = "test.mosquitto.org";
         int port = 1883;
-        char* topic = "mbed-sample";
-        float version = 0.6;
+        SocketAddress addr;
+        // addr.set_ip_address(hostname);
+        if (_net->gethostbyname(hostname, &addr) != NSAPI_ERROR_OK) {
+            printf("hostname error");
+        }
+        addr.set_port(port);
 
-        // New
-
-        printf("MQTT Connecting to %s:%d\r\n", hostname, port);
-        // mqttNetwork has its own socket
-        int rc = mqttNetwork.connect(hostname, port);
+        int rc = socket.connect(addr); 
         if (rc != 0)
             printf("rc from MQTT TCP connect is %d\r\n", rc);
+        else
+            printf("MQTT socket connected \n");
         
+        const char* topicName = "385test";
+        MQTT::Message message;
+
+        // from HelloMQTT
         MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
         data.MQTTVersion = 3;
         data.clientID.cstring = "mbed-sample";
-        data.username.cstring = "testuser";
-        data.password.cstring = "testpassword";
+        // data.username.cstring = "testuser";
+        // data.password.cstring = "testpassword";
         if ((rc = client.connect(data)) != 0)
-            printf("rc from MQTT connect is %d\r\n", rc);
+            printf("rc from client connect is %d\r\n", rc);
 
-        if ((rc = client.subscribe(topic, MQTT::QOS2, messageArrived)) != 0)
+        if ((rc = client.subscribe(topicName, MQTT::QOS1, messageArrived)) != 0)
             printf("rc from MQTT subscribe is %d\r\n", rc);
 
-        MQTT::Message message;
 
-        // QoS 0
         char buf[100];
-        sprintf(buf, "Hello World!  QoS 0 message from app version %f\r\n", version);
-        message.qos = MQTT::QOS0;
+        sprintf(buf, "Hello World!  QoS 1 message from\r\n");
+        message.qos = MQTT::QOS1;
         message.retained = false;
         message.dup = false;
         message.payload = (void*)buf;
         message.payloadlen = strlen(buf)+1;
-        rc = client.publish(topic, message);
+        rc = client.publish(topicName, message);
+        
+        printf("rc from client publish is %d\r\n", rc); 
+        
         while (arrivedcount < 1)
             client.yield(100);
 
-        // QoS 1
-        sprintf(buf, "Hello World!  QoS 1 message from app version %f\r\n", version);
-        message.qos = MQTT::QOS1;
-        message.payloadlen = strlen(buf)+1;
-        rc = client.publish(topic, message);
-        while (arrivedcount < 2)
-            client.yield(100);
-
-        // QoS 2
-        sprintf(buf, "Hello World!  QoS 2 message from app version %f\r\n", version);
-        message.qos = MQTT::QOS2;
-        message.payloadlen = strlen(buf)+1;
-        rc = client.publish(topic, message);
-        while (arrivedcount < 3)
-            client.yield(100);
-
-        if ((rc = client.unsubscribe(topic)) != 0)
-            printf("rc from unsubscribe was %d\r\n", rc);
-
-        if ((rc = client.disconnect()) != 0)
-            printf("rc from disconnect was %d\r\n", rc);
-
-        mqttNetwork.disconnect();
-
-        printf("Version %.2f: finish %d msgs\r\n", version, arrivedcount);
+        // end of MQTT stuff
 
         /* opening the socket only allocates resources */
         result = _socket.open(_net);
