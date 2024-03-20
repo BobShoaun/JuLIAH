@@ -117,7 +117,8 @@ public:
         else
             printf("MQTT socket connected \n");
         
-        const char* topicName = "385test";
+        const char* pubTopic = "385test";
+        const char* subTopic = "385test2";
         MQTT::Message message;
 
         // from HelloMQTT
@@ -127,7 +128,7 @@ public:
         if ((rc = client.connect(data)) != 0)
             printf("rc from client connect is %d\r\n", rc);
 
-        if ((rc = client.subscribe(topicName, MQTT::QOS0, messageArrived)) != 0)
+        if ((rc = client.subscribe(subTopic, MQTT::QOS0, messageArrived)) != 0)
             printf("rc from MQTT subscribe is %d\r\n", rc);
 
 
@@ -138,24 +139,24 @@ public:
         message.dup = false;
         message.payload = (void*)buf;
         message.payloadlen = strlen(buf)+1;
-        rc = client.publish(topicName, message);
-        
+        rc = client.publish(pubTopic, message);
         printf("rc from client publish is %d\r\n", rc); 
         
-        while (arrivedcount < 1)
+        while (arrivedcount < 1){
             client.yield(100);
-
+            --arrivedcount;
+        }
         printf("Demo concluded successfully \r\n");
 
         // clean up
-        rc = client.unsubscribe(topicName);
-        printf("rc from unsubscribe was %d\r\n", rc);
+        // rc = client.unsubscribe(topicName);
+        // printf("rc from unsubscribe was %d\r\n", rc);
 
-        rc = client.disconnect();
-        printf("rc from client disconnect was %d\r\n", rc);
+        // rc = client.disconnect();
+        // printf("rc from client disconnect was %d\r\n", rc);
 
-        _net->disconnect();
-        printf("disconnected from wifi");
+        // _net->disconnect();
+        // printf("disconnected from wifi");
     }
 
 private:
