@@ -67,7 +67,7 @@
 <main
   class="bg-gray-100 p-5 lg:py-14 lg:px-10 h-screen
     grid lg:grid-cols-[3fr_minmax(10em,1fr)] lg:grid-rows-[auto_1fr]
-    grid-cols-1 grid-rows-[auto_auto]
+    grid-cols-1 grid-rows-[auto_1fr_auto]
     gap-x-10 gap-y-5"
 >
   <h1 class="text-2xl lg:text-5xl font-bold lg:col-span-2 text-gray-900">
@@ -82,7 +82,7 @@
 
     <ul
       class="mt-5 overflow-auto -ml-4 py-3 flex flex-col basis-full
-    border-y-2 border-gray-300"
+    border-y-2 border-gray-300 gap-1"
     >
       {#each soundRecordings as soundRecording, i (soundRecording.timestamp)}
         <li key={soundRecording}>
@@ -112,7 +112,7 @@
     >
       Distract
     </button>
-    <p class="text-center mt-2 lg:mt-5 text-gray-700">
+    <p class="text-center mt-3 lg:mt-5 text-gray-700">
       Press the big red button above to blink the LED on the device and cause a
       distraction!
     </p>

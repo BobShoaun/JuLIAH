@@ -2,14 +2,14 @@
   export let soundRecording;
   export let onDelete;
 
-  console.log(soundRecording);
-
   const { timestamp, audio, peakVolume } = soundRecording;
 </script>
 
-<div class="flex px-4 text-gray-500 pt-2">
+<div class="flex px-4 text-gray-500 pt-2 gap-2">
   <p class="text-sm">{new Date(timestamp)}</p>
-  <p class="text-sm ml-auto">Peak volume: {peakVolume.toFixed(2)} db</p>
+  <p class="text-sm ml-auto text-right">
+    Peak volume: {peakVolume.toFixed(2)} db
+  </p>
 </div>
 
 <div class="flex">

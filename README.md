@@ -36,3 +36,10 @@ mosquitto_pub -h test.mosquitto.org -t juliah/sound -m "{ \"timestamp\":10000000
 ### online mqtt client
 
 https://testclient-cloud.mqtt.cool/
+
+## UI todos
+
+- waveform visualization for sound recordings
+- use card like ui for each sound
+- notifications (push)
+- LED blinker UI for feedback in app
