@@ -14,17 +14,20 @@
  * limitations under the License.
  */
 
+#include "EventQueue.h"
 #include "MQTTClient.h"
 #include "mbed.h"
 #include "wifi_helper.h"
 #include "mbed-trace/mbed_trace.h"
 
-// // MQTT stuff
+// MQTT stuff
 int arrivedcount = 0;
 
 // newest MQTT stuff
 #include <MQTTClientMbedOs.h>
 
+// led stuff
+DigitalOut led1(LED1);
 
 #if MBED_CONF_APP_USE_TLS_SOCKET
 #include "root_ca_cert.h"
@@ -34,6 +37,13 @@ int arrivedcount = 0;
 #endif
 #endif // MBED_CONF_APP_USE_TLS_SOCKET
 
+// Helperfunc for blinking
+void blink()
+{
+    led1 = !led1;
+}
+
+
 // MQTT helperfunc
 void messageArrived(MQTT::MessageData& md)
 {
@@ -41,6 +51,11 @@ void messageArrived(MQTT::MessageData& md)
     printf("Message arrived: qos %d, retained %d, dup %d, packetid %d\r\n", message.qos, message.retained, message.dup, message.id);
     printf("Payload %.*s\r\n", message.payloadlen, (char*)message.payload);
     ++arrivedcount;
+
+    // blink led1 every 1s for 10 times
+    EventQueue queue;
+    queue.call_every(500ms, blink);
+    queue.dispatch_for(10s);
 }
 
 class SocketDemo {
@@ -99,9 +114,6 @@ public:
         TCPSocket socket;
         MQTTClient client(&socket);
         socket.open(_net);
-        // d
-        // personal
-            // const char* hostname = "192.168.5.13";
         const char* hostname = "test.mosquitto.org";
         int port = 1883;
         SocketAddress addr;
@@ -117,8 +129,8 @@ public:
         else
             printf("MQTT socket connected \n");
         
-        const char* pubTopic = "385test";
-        const char* subTopic = "385test2";
+        const char* pubTopic = "juliah/sound";
+        const char* subTopic = "juliah/blink";
         MQTT::Message message;
 
         // from HelloMQTT
@@ -128,17 +140,17 @@ public:
         if ((rc = client.connect(data)) != 0)
             printf("rc from client connect is %d\r\n", rc);
 
-        if ((rc = client.subscribe(subTopic, MQTT::QOS0, messageArrived)) != 0)
-            printf("rc from MQTT subscribe is %d\r\n", rc);
+        rc = client.subscribe(subTopic, MQTT::QOS0, messageArrived);
+        printf("rc from MQTT subscribe is %d\r\n", rc);
 
 
         char buf[100];
-        sprintf(buf, "Hello World!  QoS 1 message from group 8173 \r\n");
-        message.qos = MQTT::QOS1;
+        sprintf(buf, "{\"timestamp\": 100000000, \"peakVolume\": 43.4, \"audio\": \"\"}");
+        message.qos = MQTT::QOS0;
         message.retained = false;
         message.dup = false;
         message.payload = (void*)buf;
-        message.payloadlen = strlen(buf)+1;
+        message.payloadlen = strlen(buf);
         rc = client.publish(pubTopic, message);
         printf("rc from client publish is %d\r\n", rc); 
         
@@ -228,6 +240,10 @@ int main() {
 
     SocketDemo *example = new SocketDemo();
     MBED_ASSERT(example);
+
+    // start with led1 off
+    led1 = false;
+    
     example->run();
     return 0;
 }
