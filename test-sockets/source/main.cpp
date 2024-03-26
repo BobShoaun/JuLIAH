@@ -43,7 +43,6 @@ void blink()
     led1 = !led1;
 }
 
-
 // MQTT helperfunc
 void messageArrived(MQTT::MessageData& md)
 {
@@ -54,8 +53,8 @@ void messageArrived(MQTT::MessageData& md)
 
     // blink led1 every 1s for 10 times
     EventQueue queue;
-    queue.call_every(500ms, blink);
-    queue.dispatch_for(10s);
+    queue.call_every(150ms, blink);
+    queue.dispatch_for(5s);
 }
 
 class SocketDemo {
@@ -131,7 +130,6 @@ public:
         
         const char* pubTopic = "juliah/sound";
         const char* subTopic = "juliah/blink";
-        MQTT::Message message;
 
         // from HelloMQTT
         MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
@@ -143,16 +141,9 @@ public:
         rc = client.subscribe(subTopic, MQTT::QOS0, messageArrived);
         printf("rc from MQTT subscribe is %d\r\n", rc);
 
-
-        char buf[100];
-        sprintf(buf, "{\"timestamp\": 100000000, \"peakVolume\": 43.4, \"audio\": \"\"}");
-        message.qos = MQTT::QOS0;
-        message.retained = false;
-        message.dup = false;
-        message.payload = (void*)buf;
-        message.payloadlen = strlen(buf);
-        rc = client.publish(pubTopic, message);
-        printf("rc from client publish is %d\r\n", rc); 
+        char msg[100];
+        sprintf(msg, "{\"timestamp\": 100000000, \"peakVolume\": 43.4, \"audio\": \"\"}");
+        send_msg(&client, pubTopic, msg);
         
         while (arrivedcount < 1){
             client.yield(100);
@@ -225,6 +216,18 @@ private:
         printf("Netmask: %s\r\n", a.get_ip_address() ? a.get_ip_address() : "None");
         _net->get_gateway(&a);
         printf("Gateway: %s\r\n", a.get_ip_address() ? a.get_ip_address() : "None");
+    }
+
+    void send_msg(MQTTClient* client, const char *pubTopic, char *msg)
+    {
+        MQTT::Message message;
+        message.qos = MQTT::QOS0;
+        message.retained = false;
+        message.dup = false;
+        message.payload = (void*)msg;
+        message.payloadlen = strlen(msg);
+        int rc = client->publish(pubTopic, message);
+        printf("rc from client publish is %d\r\n", rc); 
     }
 
 private:
