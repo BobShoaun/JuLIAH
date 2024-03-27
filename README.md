@@ -33,6 +33,10 @@ npm run dev
 
 mosquitto_pub -h test.mosquitto.org -t juliah/sound -m "{ \"timestamp\":10000000, \"peakVolume\": 43.4, \"audio\": \"\" }"
 
+### publish mqtt for blink topic 
+
+mosquitto_pub -h test.mosquitto.org -t juliah/blink -m "BLINK MESSAGE"
+
 ### online mqtt client
 
 https://testclient-cloud.mqtt.cool/
