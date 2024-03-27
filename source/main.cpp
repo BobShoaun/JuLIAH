@@ -28,8 +28,9 @@ static uint16_t PCM_Buffer[PCM_BUFFER_LEN / 2];
 static BSP_AUDIO_Init_t MicParams;
 
 static DigitalOut led(LED1);
-static EventQueue ev_queue;
-
+static EventQueue *ev_queue = mbed_event_queue();
+bool button_flag = false;
+JuLIAHMQTT *example = new JuLIAHMQTT();
 
 // Place to store final audio (alloc on the heap), here two seconds...
 static size_t TARGET_AUDIO_BUFFER_NB_SAMPLES = AUDIO_SAMPLING_FREQUENCY * 2;
@@ -83,15 +84,22 @@ void target_audio_buffer_full() {
     // outFile.open(filename, ofstream::app);
     // FILE *outFile = fopen("raw-audio.txt", "w");
 
-
+    char* curr_str = new char[1]; 
     for (size_t ix = 0; ix < 44; ix++) {
         printf("%02x", wav_header[ix]);
-        // fprintf(outFile, "%02x", wav_header[ix]);
+        sprintf(curr_str, "%02x", wav_header[ix]);
+        example->send_msg(pubTopic, curr_str);
     }
+
+    example->send_msg(pubTopic, "o");
 
     uint8_t *buf = (uint8_t*)TARGET_AUDIO_BUFFER;
     for (size_t ix = 0; ix < TARGET_AUDIO_BUFFER_NB_SAMPLES * 2; ix++) {
-        printf("%02x", buf[ix]);
+        if (ix > 30000){
+            printf("%02x", buf[ix]);
+        }
+        sprintf(curr_str, "%02x", buf[ix]);
+        example->send_msg(pubTopic, curr_str);
     }
     printf("\n");
 }
@@ -117,7 +125,7 @@ void BSP_AUDIO_IN_HalfTransfer_CallBack(uint32_t Instance) {
     TARGET_AUDIO_BUFFER_IX += nb_samples;
 
     if (TARGET_AUDIO_BUFFER_IX >= TARGET_AUDIO_BUFFER_NB_SAMPLES) {
-        ev_queue.call(&target_audio_buffer_full);
+        ev_queue->call(&target_audio_buffer_full);
         return;
     }
 }
@@ -144,7 +152,7 @@ void BSP_AUDIO_IN_TransferComplete_CallBack(uint32_t Instance) {
     TARGET_AUDIO_BUFFER_IX += nb_samples;
 
     if (TARGET_AUDIO_BUFFER_IX >= TARGET_AUDIO_BUFFER_NB_SAMPLES) {
-        ev_queue.call(&target_audio_buffer_full);
+        ev_queue->call(&target_audio_buffer_full);
         return;
     }
 }
@@ -192,7 +200,9 @@ void start_recording() {
     }
 }
 
-
+void button_wrapper(){
+    button_flag = true;
+}
 
 
 
@@ -217,8 +227,6 @@ int main() {
 #ifdef MBED_CONF_MBED_TRACE_ENABLE
     mbed_trace_init();
 #endif
-
-    JuLIAHMQTT *example = new JuLIAHMQTT();
     MBED_ASSERT(example);
 
     // start with led1 off
@@ -229,13 +237,6 @@ int main() {
     char msg[100];
     sprintf(msg, "{\"timestamp\": 100000000, \"peakVolume\": 43.4, \"audio\": \"\"}");
     example->send_msg(pubTopic, msg);
-    // while (example->has_message()){
-    //     example->listen_message();
-    // }
-
-    // example->cleanup();
-
-
 
     printf("Hello from the B-L475E-IOT01A microphone demo\n");
 
@@ -259,10 +260,22 @@ int main() {
 
     // hit the blue button to record a message
     static InterruptIn btn(BUTTON1);
-    btn.fall(ev_queue.event(&start_recording));
+    btn.fall(button_wrapper);
 
-    ev_queue.dispatch_forever();
+    printf("onto receiving");
 
+    while (true){
+        if (button_flag){
+            start_recording();
+            button_flag = false;
+        }
+
+        if (example->has_message()){
+            example->listen_message();
+        }
+    }
+
+    example->cleanup();
 
 
     return 0;
