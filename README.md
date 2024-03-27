@@ -37,6 +37,10 @@ mosquitto_pub -h test.mosquitto.org -t juliah/sound -m "{ \"timestamp\":10000000
 
 mosquitto_pub -h test.mosquitto.org -t juliah/blink -m "BLINK MESSAGE"
 
+### subscrive mqtt sound topic
+
+mosquitto_sub -h test.mosquitto.org -t juliah/sound
+
 ### online mqtt client
 
 https://testclient-cloud.mqtt.cool/
