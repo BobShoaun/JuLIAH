@@ -5,7 +5,9 @@
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
-		"preview": "vite preview"
+		"preview": "vite preview",
+		// "gh-pages": "npm run build && npx gh-pages -d build"
+		"gh-pages": "npm run build && node deploy.js"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^3.0.0",
@@ -13,6 +15,7 @@
 		"@sveltejs/kit": "^2.0.0",
 		"@sveltejs/vite-plugin-svelte": "^3.0.0",
 		"autoprefixer": "^10.4.18",
+		"gh-pages": "^6.1.1",
 		"postcss": "^8.4.37",
 		"svelte": "^4.2.7",
 		"tailwindcss": "^3.4.1",
@@ -20,6 +23,7 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"buffer": "^6.0.3",
 		"mqtt": "^5.5.0"
 	}
 }

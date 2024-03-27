@@ -5,17 +5,23 @@
 
   import mqtt from "mqtt";
 
+  import { Buffer } from "buffer";
+
   let client;
   const blinkTopic = "juliah/blink";
   const soundTopic = "juliah/sound";
 
-  const brokerURL = "ws://test.mosquitto.org:8080";
+  const brokerURL =
+    process.env.NODE_ENV === "production"
+      ? "wss://test.mosquitto.org:8081"
+      : "ws://test.mosquitto.org:8080";
   // const brokerURL = "ws://localhost:8080";
 
   let connectionState = "pending";
 
   let soundRecordings = [];
   let wav_file = [];
+  let recording;
 
   onMount(async () => {
     try {
@@ -48,8 +54,7 @@
       switch (preamble) {
         case 0: // beginning
           console.log(message.subarray(1).toString());
-          const header = message.subarray(1).toString();
-
+          const header = message.subarray(1).toString().slice(0, -1);
           let headerJSON;
           try {
             headerJSON = JSON.parse(header);
@@ -58,16 +63,12 @@
             return;
           }
 
-          const recording = {
-            // timestamp: jsonMessage.timestamp,
+          recording = {
             timestamp: Date.now(),
-            // peakVolume: jsonMessage.peakVolume,
-            peakVolume: Math.random() * 100,
-            audio:
-              headerJSON.audio ||
-              "https://www2.cs.uic.edu/~i101/SoundFiles/StarWars60.wav",
+            peakVolume: headerJSON.peakVolume,
+            // audio: "https://www2.cs.uic.edu/~i101/SoundFiles/StarWars60.wav",
+            audio: "",
           };
-          soundRecordings = [recording, ...soundRecordings];
 
           wav_file = [];
           break;
@@ -78,33 +79,13 @@
           const wav = Buffer.concat(wav_file);
           console.log(wav);
 
-          const filename = "./audio.wav";
-          fs.writeFileSync(filename, wav);
-          console.log("Written to", filename);
+          recording.audio = URL.createObjectURL(
+            new Blob([wav.buffer], { type: "audio/wav" })
+          );
+          soundRecordings = [recording, ...soundRecordings];
+
           break;
       }
-
-      // let jsonMessage;
-      // try {
-      //   jsonMessage = JSON.parse(message.toString());
-      // } catch (e) {
-      //   console.log("Found invalid JSON message, discarding.", e);
-      //   return;
-      // }
-
-      // console.log(topic);
-
-      // const recording = {
-      //   // timestamp: jsonMessage.timestamp,
-      //   timestamp: Date.now(),
-      //   // peakVolume: jsonMessage.peakVolume,
-      //   peakVolume: Math.random() * 100,
-      //   audio:
-      //     jsonMessage.audio ||
-      //     "https://www2.cs.uic.edu/~i101/SoundFiles/StarWars60.wav",
-      // };
-
-      // soundRecordings = [recording, ...soundRecordings];
       // client.end();
     });
   });

@@ -23,6 +23,10 @@
 #include <fstream>
 #include <stdint.h>
 #include <string>
+#include "mbed.h"
+
+// #include <chrono>
+// #include <ctime>
 
 #define NOISE_THRESHOLD 5000
 #define FILE_CHUNK_SIZE 100
@@ -160,12 +164,19 @@ void target_audio_buffer_full()
 
   printf("\n");
 
+
   // Send header w preamble 0x00
-  const auto header_message = "{\"timestamp\": 100000000, \"peakVolume\": 43.4}";
-  auto header = (char *)malloc(strlen(header_message) + 1); // allocate on heap, +1 for null terminator
-  strcpy(header, header_message);
-  send_audio_chunk(0x00, (void *)header, strlen(header_message) + 1);
-  free(header);
+	string header_message;
+	header_message += "{ \"peakVolume\":";
+	header_message += std::to_string(max_amplitude);
+	header_message += "}";
+
+	std::cout << "header message: " << header_message << std::endl;
+
+	char *header = new char[header_message.length() + 1]; 
+  strcpy(header, header_message.c_str());
+  send_audio_chunk(0x00, (void *)header, header_message.length() + 1);
+	delete[] header;
   // const uint8_t start = 0x00;
   // juliah_mqtt->send_message(sound_topic, (void*)&start, 1);
 
@@ -337,9 +348,6 @@ int main()
     printf("Something went wrong when setting up audio!\n");
     return 1;
   }
-
-  // char* message = "{\"timestamp\": 100000000, \"peakVolume\": 43.4, \"audio\": \"\"}";
-  // juliah_mqtt->send_message(sound_topic, message, strlen(message));
 
   printf("Press the BLUE button to record audio\n");
   blue_button.rise(ev_queue->event(&start_recording));
