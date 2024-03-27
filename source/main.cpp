@@ -17,19 +17,25 @@
 #include "juliah_mqtt.hpp"
 #include "stm32l475e_iot01_audio.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <iostream>
 #include <fstream>
+#include <stdint.h>
 #include <string>
 
-// MIC STUFF BEGIN
+#define NOISE_THRESHOLD 5000
+#define FILE_CHUNK_SIZE 100
 
+DigitalOut led(LED1);
+
+EventQueue* ev_queue = mbed_event_queue();
+InterruptIn blue_button(BUTTON1);
+const auto juliah_mqtt = new JuLIAHMQTT();
+
+// MIC STUFF BEGIN
 static uint16_t PCM_Buffer[PCM_BUFFER_LEN / 2];
 static BSP_AUDIO_Init_t MicParams;
-
-static DigitalOut led(LED1);
-static EventQueue ev_queue;
-
 
 // Place to store final audio (alloc on the heap), here two seconds...
 static size_t TARGET_AUDIO_BUFFER_NB_SAMPLES = AUDIO_SAMPLING_FREQUENCY * 2;
@@ -41,16 +47,35 @@ static size_t SKIP_FIRST_EVENTS = 50;
 static size_t half_transfer_events = 0;
 static size_t transfer_complete_events = 0;
 
+int16_t get_max_amplitude() {
+    const size_t buffer_size = PCM_BUFFER_LEN / 2;
+    int16_t max_amplitude = 0; // Track max amplitude
+
+    for (int i = 0; i < buffer_size; i++) {
+        int16_t sample = PCM_Buffer[i];
+        /* Absolute value accounts for negative amplitudes
+        (Range of -32000 to 32000, 0 means no sound) */
+        sample = abs(sample);
+        if (sample > max_amplitude) 
+            max_amplitude = sample;
+    }
+    return max_amplitude;
+}
+
+void send_audio_chunk(uint8_t preamble, void* buf, size_t buf_length) {
+    uint8_t *content_buf = (uint8_t*)buf;
+    memmove(content_buf + 1, content_buf, buf_length - 1);
+    *content_buf = preamble; // middle section
+    juliah_mqtt->send_message(sound_topic, content_buf, buf_length + 1);
+}
 
 // callback that gets invoked when TARGET_AUDIO_BUFFER is full
 void target_audio_buffer_full() {
     // pause audio stream
-    int32_t ret = BSP_AUDIO_IN_Pause(AUDIO_INSTANCE);
+    int32_t ret = BSP_AUDIO_IN_Stop(AUDIO_INSTANCE);
     if (ret != BSP_ERROR_NONE) {
-        printf("Error Audio Pause (%d)\n", ret);
-    }
-    else {
-        printf("OK Audio Pause\n");
+        printf("Error Audio Stop (%d)\n", ret);
+        return;
     }
 
     // create WAV file
@@ -58,7 +83,9 @@ void target_audio_buffer_full() {
     size_t dataSize = (TARGET_AUDIO_BUFFER_NB_SAMPLES * 2);
     size_t fileSize = 44 + (TARGET_AUDIO_BUFFER_NB_SAMPLES * 2);
 
-    uint8_t wav_header[44] = {
+    const auto wav_header_length = 44;
+
+    uint8_t wav_header[wav_header_length] = {
         0x52, 0x49, 0x46, 0x46, // RIFF
         static_cast<uint8_t>(fileSize & 0xff), static_cast<uint8_t>((fileSize >> 8) & 0xff), static_cast<uint8_t>((fileSize >> 16) & 0xff), static_cast<uint8_t>((fileSize >> 24) & 0xff),
         0x57, 0x41, 0x56, 0x45, // WAVE
@@ -75,26 +102,59 @@ void target_audio_buffer_full() {
 
     printf("Total complete events: %lu, index is %lu\n", transfer_complete_events, TARGET_AUDIO_BUFFER_IX);
 
+    const auto max_amplitude = get_max_amplitude();
+    if (max_amplitude < NOISE_THRESHOLD) {
+        printf("Audio not loud enough, discarding\n");
+        // return;
+    }
+
     // print both the WAV header and the audio buffer in HEX format to serial
     // you can use the script in `hex-to-buffer.js` to make a proper WAV file again
     printf("WAV file:\n");
-
-
-    // outFile.open(filename, ofstream::app);
-    // FILE *outFile = fopen("raw-audio.txt", "w");
-
-
-    for (size_t ix = 0; ix < 44; ix++) {
+    for (size_t ix = 0; ix < wav_header_length; ix++)
         printf("%02x", wav_header[ix]);
-        // fprintf(outFile, "%02x", wav_header[ix]);
-    }
+    printf("\n");
 
     uint8_t *buf = (uint8_t*)TARGET_AUDIO_BUFFER;
-    for (size_t ix = 0; ix < TARGET_AUDIO_BUFFER_NB_SAMPLES * 2; ix++) {
-        printf("%02x", buf[ix]);
-    }
+    for (size_t ix = 0; ix < dataSize; ix++)
+        if (ix < 1000) // only print first 1000 bytes
+            printf("%02x", buf[ix]);
+    
     printf("\n");
+
+    // Send header w preamble 0x00
+    const auto header_message = "{\"timestamp\": 100000000, \"peakVolume\": 43.4}";
+    auto header = (char *)malloc(strlen(header_message) + 1); // allocate on heap, +1 for null terminator
+    strcpy(header, header_message);
+    send_audio_chunk(0x00, (void*)header, strlen(header_message) + 1);
+    free(header);
+    // const uint8_t start = 0x00;
+    // juliah_mqtt->send_message(sound_topic, (void*)&start, 1);
+
+    // Send wav header w preamble 0x01
+    send_audio_chunk(0x01, wav_header, wav_header_length);
+
+    // Send wav contents w preamble 0x01
+    size_t offset;
+    for (offset = 0; offset < dataSize; offset += FILE_CHUNK_SIZE)
+        send_audio_chunk(0x01, buf + offset, FILE_CHUNK_SIZE);
+
+    const auto remaining_offset = offset - FILE_CHUNK_SIZE;
+    const auto remaining_chunk_size = dataSize - remaining_offset;
+    if (remaining_chunk_size > 0) {
+        printf("Remaining chunk size: %d\n", remaining_chunk_size);
+        send_audio_chunk(0x01, buf + remaining_offset, remaining_chunk_size);
+    }
+
+    // Send footer w preamble 0x02
+    const uint8_t end = 0x02;
+    juliah_mqtt->send_message(sound_topic, (void*)&end, 1);
+    // const auto footer = "end of audio file";
+    // send_audio_chunk(0x02, (void*)footer, 0);
+
+    printf("Recorded and sent audio\n");
 }
+
 
 /**
 * @brief  Half Transfer user callback, called by BSP functions.
@@ -108,16 +168,15 @@ void BSP_AUDIO_IN_HalfTransfer_CallBack(uint32_t Instance) {
     uint32_t buffer_size = PCM_BUFFER_LEN / 2; /* Half Transfer */
     uint32_t nb_samples = buffer_size / sizeof(int16_t); /* Bytes to Length */
 
-    if ((TARGET_AUDIO_BUFFER_IX + nb_samples) > TARGET_AUDIO_BUFFER_NB_SAMPLES) {
+    if ((TARGET_AUDIO_BUFFER_IX + nb_samples) > TARGET_AUDIO_BUFFER_NB_SAMPLES)
         return;
-    }
 
     /* Copy first half of PCM_Buffer from Microphones onto Fill_Buffer */
     memcpy(((uint8_t*)TARGET_AUDIO_BUFFER) + (TARGET_AUDIO_BUFFER_IX * 2), PCM_Buffer, buffer_size);
     TARGET_AUDIO_BUFFER_IX += nb_samples;
 
     if (TARGET_AUDIO_BUFFER_IX >= TARGET_AUDIO_BUFFER_NB_SAMPLES) {
-        ev_queue.call(&target_audio_buffer_full);
+        ev_queue->call(&target_audio_buffer_full);
         return;
     }
 }
@@ -134,9 +193,8 @@ void BSP_AUDIO_IN_TransferComplete_CallBack(uint32_t Instance) {
     uint32_t buffer_size = PCM_BUFFER_LEN / 2; /* Half Transfer */
     uint32_t nb_samples = buffer_size / sizeof(int16_t); /* Bytes to Length */
 
-    if ((TARGET_AUDIO_BUFFER_IX + nb_samples) > TARGET_AUDIO_BUFFER_NB_SAMPLES) {
+    if ((TARGET_AUDIO_BUFFER_IX + nb_samples) > TARGET_AUDIO_BUFFER_NB_SAMPLES)
         return;
-    }
 
     /* Copy second half of PCM_Buffer from Microphones onto Fill_Buffer */
     memcpy(((uint8_t*)TARGET_AUDIO_BUFFER) + (TARGET_AUDIO_BUFFER_IX * 2),
@@ -144,7 +202,7 @@ void BSP_AUDIO_IN_TransferComplete_CallBack(uint32_t Instance) {
     TARGET_AUDIO_BUFFER_IX += nb_samples;
 
     if (TARGET_AUDIO_BUFFER_IX >= TARGET_AUDIO_BUFFER_NB_SAMPLES) {
-        ev_queue.call(&target_audio_buffer_full);
+        ev_queue->call(&target_audio_buffer_full);
         return;
     }
 }
@@ -164,10 +222,9 @@ void print_stats() {
 }
 
 void start_recording() {
-    int32_t ret;
     uint32_t state;
 
-    ret = BSP_AUDIO_IN_GetState(AUDIO_INSTANCE, &state);
+    int32_t ret = BSP_AUDIO_IN_GetState(AUDIO_INSTANCE, &state);
     if (ret != BSP_ERROR_NONE) {
         printf("Cannot start recording: Error getting audio state (%d)\n", ret);
         return;
@@ -187,21 +244,13 @@ void start_recording() {
         printf("Error Audio Record (%ld)\n", ret);
         return;
     }
-    else {
-        printf("OK Audio Record\n");
-    }
+
+    printf("OK Audio Record\n");
 }
 
 
 
-
-
-
-// MIC STUFF END
-
-
-int main() {
-
+bool setup_audio() {
     // set up the microphone
     MicParams.BitsPerSample = 16;
     MicParams.ChannelsNbr = AUDIO_CHANNELS;
@@ -209,61 +258,45 @@ int main() {
     MicParams.SampleRate = AUDIO_SAMPLING_FREQUENCY;
     MicParams.Volume = 32;
 
-
-
-
-    printf("\r\nStarting socket demo\r\n\r\n");
-
-#ifdef MBED_CONF_MBED_TRACE_ENABLE
-    mbed_trace_init();
-#endif
-
-    JuLIAHMQTT *example = new JuLIAHMQTT();
-    MBED_ASSERT(example);
-
-    // start with led1 off
-    led1 = false;
-    
-    example->setup();
-
-    char msg[100];
-    sprintf(msg, "{\"timestamp\": 100000000, \"peakVolume\": 43.4, \"audio\": \"\"}");
-    example->send_msg(pubTopic, msg);
-    // while (example->has_message()){
-    //     example->listen_message();
-    // }
-
-    // example->cleanup();
-
-
-
-    printf("Hello from the B-L475E-IOT01A microphone demo\n");
-
     if (!TARGET_AUDIO_BUFFER) {
         printf("Failed to allocate TARGET_AUDIO_BUFFER buffer\n");
-        return 0;
+        return false;
     }
-
-    
 
     int32_t ret = BSP_AUDIO_IN_Init(AUDIO_INSTANCE, &MicParams);
 
     if (ret != BSP_ERROR_NONE) {
         printf("Error Audio Init (%ld)\r\n", ret);
+        return false;
+    }
+    printf("OK Audio Init\t(Audio Freq=%d)\r\n", AUDIO_SAMPLING_FREQUENCY);
+    return true;
+}
+// MIC STUFF END
+
+int main() {
+    printf("========== JuLIAH: Hi ==========\n\n");
+
+    while(!juliah_mqtt->setup())
+        printf("Something went wrong when setting up wifi & mqtt connection! Retrying...\n");
+
+    if (!setup_audio()) {
+        printf("Something went wrong when setting up audio!\n");
         return 1;
-    } else {
-        printf("OK Audio Init\t(Audio Freq=%d)\r\n", AUDIO_SAMPLING_FREQUENCY);
     }
 
-    printf("Press the BLUE button to record a message\n");
+    // char* message = "{\"timestamp\": 100000000, \"peakVolume\": 43.4, \"audio\": \"\"}";
+    // juliah_mqtt->send_message(sound_topic, message, strlen(message));
 
-    // hit the blue button to record a message
-    static InterruptIn btn(BUTTON1);
-    btn.fall(ev_queue.event(&start_recording));
+    printf("Press the BLUE button to record audio\n");
+    blue_button.rise(ev_queue->event(&start_recording));
 
-    ev_queue.dispatch_forever();
+    printf("Receiving messages\n");
+    while (juliah_mqtt->has_message())
+        juliah_mqtt->listen_message();
 
+    juliah_mqtt->cleanup();
 
-
+    printf("========== JuLIAH: Bye ==========\n\n");
     return 0;
 }

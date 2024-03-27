@@ -20,14 +20,9 @@
 #include "mbed.h"
 #include "wifi_helper.h"
 #include "mbed-trace/mbed_trace.h"
-
-// MQTT stuff
-
-// newest MQTT stuff
+#include <string>
 #include <MQTTClientMbedOs.h>
 
-// led stuff
-DigitalOut led1(LED1);
 
 #if MBED_CONF_APP_USE_TLS_SOCKET
 #include "root_ca_cert.h"
@@ -37,17 +32,22 @@ DigitalOut led1(LED1);
 #endif
 #endif // MBED_CONF_APP_USE_TLS_SOCKET
 
-const char* pubTopic = "juliah/sound";
-const char* subTopic = "juliah/blink";
+const auto sound_topic = "juliah/sound";
+const auto blink_topic = "juliah/blink";
+const auto broker_hostname = "test.mosquitto.org";
+// const auto broker_hostname = "localhost";
+const auto broker_port = 1883;
+
+// led stuff
+DigitalOut led1(LED1);
+// MQTT helperfunc
+int arrivedcount = 0;
 
 // Helperfunc for blinking
 void blink()
 {
     led1 = !led1;
 }
-
-// MQTT helperfunc
-int arrivedcount = 0;
 
 static void messageArrived(MQTT::MessageData& md)
 {
@@ -61,7 +61,6 @@ static void messageArrived(MQTT::MessageData& md)
     queue.call_every(150ms, blink);
     queue.dispatch_for(5s);
 }
-
 
 class JuLIAHMQTT {
     static constexpr size_t MAX_NUMBER_OF_ACCESS_POINTS = 10;
@@ -90,11 +89,11 @@ public:
     }
 
 
-    void setup()
+    bool setup()
     {
         if (!_net) {
-            printf("Error! No network interface found.\r\n");
-            return;
+            printf("Error! No network interface found.\n");
+            return false;
         }
 
         /* if we're using a wifi interface run a quick scan */
@@ -109,54 +108,55 @@ public:
 
         /* connect will perform the action appropriate to the interface type to connect to the network */
 
-        printf("Connecting to the network...\r\n");
+        printf("Connecting to a network...\n");
 
         nsapi_size_or_error_t result = _net->connect();
         if (result != 0) {
-            printf("Error! _net->connect() returned: %d\r\n", result);
-            return;
+            printf("Error! _net->connect() returned: %d\n", result);
+            return false;
         }
 
         print_network_info();
 
         socket.open(_net);
-        const char* hostname = "test.mosquitto.org";
-        int port = 1883;
         SocketAddress addr;
-        // addr.set_ip_address(hostname);
-        if (_net->gethostbyname(hostname, &addr) != NSAPI_ERROR_OK) {
-            printf("hostname error");
+        // addr.set_ip_address("142.198.204.82");
+        if (_net->gethostbyname(broker_hostname, &addr) != NSAPI_ERROR_OK) {
+            printf("hostname error\n");
+            return false;
         }
-        addr.set_port(port);
+        addr.set_port(broker_port);
 
         int rc = socket.connect(addr); 
-        if (rc != 0)
+        if (rc != 0) {
             printf("rc from MQTT TCP connect is %d\r\n", rc);
-        else
-            printf("MQTT socket connected \n");
+            return false;
+        }
+        printf("MQTT socket connected \n");
         
         // from HelloMQTT
         MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
         data.MQTTVersion = 3;
-        data.clientID.cstring = "mbed-sample";
-        if ((rc = client.connect(data)) != 0)
+        data.clientID.cstring = "juliah-device";
+        if ((rc = client.connect(data)) != 0) {
             printf("rc from client connect is %d\r\n", rc);
+            return false;
+        }
 
-        rc = client.subscribe(subTopic, MQTT::QOS0, messageArrived);
-        printf("rc from MQTT subscribe is %d\r\n", rc);
-        printf("Setup concluded successfully \r\n");       
+        rc = client.subscribe(blink_topic, MQTT::QOS0, messageArrived);
+        return true;     
     }
 
-    void send_msg(const char *pubTopic, char *msg)
+    void send_message(const char *pubTopic, void *message_buf, size_t message_length)
     {
         MQTT::Message message;
         message.qos = MQTT::QOS0;
         message.retained = false;
         message.dup = false;
-        message.payload = (void*)msg;
-        message.payloadlen = strlen(msg);
+        message.payload = message_buf;
+        message.payloadlen = message_length;
         int rc = client.publish(pubTopic, message);
-        printf("rc from client publish is %d\r\n", rc); 
+        printf("rc from client publish is %d\n", rc); 
     }
 
     void listen_message() {
@@ -170,14 +170,14 @@ public:
 
     void cleanup() {
         // clean up
-        int rc = client.unsubscribe(subTopic);
-        printf("rc from unsubscribe was %d\r\n", rc);
+        int rc = client.unsubscribe(blink_topic);
+        printf("rc from unsubscribe was %d\n", rc);
 
         rc = client.disconnect();
-        printf("rc from client disconnect was %d\r\n", rc);
+        printf("rc from client disconnect was %d\n", rc);
 
         _net->disconnect();
-        printf("disconnected from wifi");
+        printf("disconnected from wifi\n");
     }
 
 private:
@@ -189,14 +189,14 @@ private:
         const char hostname[] = MBED_CONF_APP_HOSTNAME;
 
         /* get the host address */
-        printf("\nResolve hostname %s\r\n", hostname);
+        printf("\nResolve hostname %s\n", hostname);
         nsapi_size_or_error_t result = _net->gethostbyname(hostname, &address);
         if (result != 0) {
-            printf("Error! gethostbyname(%s) returned: %d\r\n", hostname, result);
+            printf("Error! gethostbyname(%s) returned: %d\n", hostname, result);
             return false;
         }
 
-        printf("%s address is %s\r\n", hostname, (address.get_ip_address() ? address.get_ip_address() : "None") );
+        printf("%s address is %s\n", hostname, (address.get_ip_address() ? address.get_ip_address() : "None") );
 
         return true;
     }
@@ -215,7 +215,7 @@ private:
             return;
         }
 
-        printf("%d networks available:\r\n", result);
+        printf("%d networks available:\n", result);
 
         for (int i = 0; i < result; i++) {
             printf("Network: %s secured: %s BSSID: %hhX:%hhX:%hhX:%hhx:%hhx:%hhx RSSI: %hhd Ch: %hhd\r\n",
