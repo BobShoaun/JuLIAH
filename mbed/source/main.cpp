@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "DigitalOut.h"
+#include "PinNames.h"
 #include "juliah_mqtt.hpp"
 #include "stm32l475e_iot01_audio.h"
 
@@ -32,10 +34,12 @@
 #define FILE_CHUNK_SIZE 100
 
 DigitalOut led(LED1);
+DigitalOut led2(LED2);
 
 EventQueue *ev_queue = mbed_event_queue();
 InterruptIn blue_button(BUTTON1);
 const auto juliah_mqtt = new JuLIAHMQTT();
+bool is_recording = false;
 
 // MIC STUFF BEGIN
 static uint16_t PCM_Buffer[PCM_BUFFER_LEN / 2];
@@ -147,7 +151,7 @@ void target_audio_buffer_full()
   if (max_amplitude < NOISE_THRESHOLD)
   {
     printf("Audio not loud enough, discarding\n");
-    // return;
+    return;
   }
 
   // print both the WAV header and the audio buffer in HEX format to serial
@@ -336,8 +340,21 @@ bool setup_audio()
 }
 // MIC STUFF END
 
+void button_helper(){
+    is_recording = !is_recording;
+    led2 = is_recording;
+}
+
+void to_record(){
+    if (is_recording){
+        ev_queue->call(start_recording);
+    }
+}
+
+
 int main()
 {
+  led2 = false;
   printf("========== JuLIAH: Hi ==========\n\n");
 
   while (!juliah_mqtt->setup())
@@ -350,11 +367,16 @@ int main()
   }
 
   printf("Press the BLUE button to record audio\n");
-  blue_button.rise(ev_queue->event(&start_recording));
+  blue_button.rise(button_helper);
 
-  printf("Receiving messages\n");
-  while (juliah_mqtt->has_message())
-    juliah_mqtt->listen_message();
+  ev_queue->call_every(3s, to_record);
+
+  while (true){
+
+      if (juliah_mqtt->has_message()){
+        juliah_mqtt->listen_message();
+      }
+  }
 
   juliah_mqtt->cleanup();
 

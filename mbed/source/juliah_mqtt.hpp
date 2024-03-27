@@ -156,7 +156,7 @@ public:
         message.payload = message_buf;
         message.payloadlen = message_length;
         int rc = client.publish(pubTopic, message);
-        printf("rc from client publish is %d\n", rc); 
+        // printf("rc from client publish is %d\n", rc); 
     }
 
     void listen_message() {
