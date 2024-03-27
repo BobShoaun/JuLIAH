@@ -11,12 +11,28 @@
   const blinkTopic = "juliah/blink";
   const soundTopic = "juliah/sound";
 
-  onMount(() => {
-    // const client = mqtt.connect("ws://localhost:8080"); // create a client
-    client = mqtt.connect("ws://test.mosquitto.org:8080"); // create a client
+  const brokerURL = "ws://test.mosquitto.org:8080";
+  // const brokerURL = "ws://localhost:8080";
+
+  let connectionState = "pending";
+
+  onMount(async () => {
+    try {
+      client = mqtt.connect(brokerURL); // create a client
+    } catch (e) {
+      console.log("MQTT connection FAILED");
+      connectionState = "offline";
+      return;
+    }
+
+    client.on("offline", (err) => {
+      connectionState = "offline";
+      console.log("MQTT offline:", err);
+    });
 
     client.on("connect", () => {
       console.log("Connected to MQTT Broker");
+      connectionState = "connected";
 
       client.subscribe(soundTopic, (err) => {
         if (err) console.log("Error subscribing!", err);
@@ -31,7 +47,7 @@
       try {
         jsonMessage = JSON.parse(message.toString());
       } catch (e) {
-        console.log("Found invalid JSON message, discarding.");
+        console.log("Found invalid JSON message, discarding.", e);
         return;
       }
 
@@ -62,6 +78,28 @@
   const deleteSoundRecording = (index) => {
     soundRecordings = soundRecordings.filter((_, i) => i !== index);
   };
+
+  const getConnectionColor = (connectionState) => {
+    switch (connectionState) {
+      case "connected":
+        return "text-green-500";
+      case "offline":
+        return "text-red-500";
+      default:
+        return "text-yellow-500";
+    }
+  };
+
+  const getConnectionText = (connectionState) => {
+    switch (connectionState) {
+      case "connected":
+        return "Connected";
+      case "offline":
+        return "Offline";
+      default:
+        return "Connecting";
+    }
+  };
 </script>
 
 <main
@@ -70,9 +108,19 @@
     grid-cols-1 grid-rows-[auto_1fr_auto]
     gap-x-10 gap-y-5"
 >
-  <h1 class="text-2xl lg:text-5xl font-bold lg:col-span-2 text-gray-900">
+  <h1 class="text-2xl lg:text-5xl font-bold text-gray-900">
     JuLIAH <span class="text-gray-600 font-light">Just Leave It At Home</span>
   </h1>
+
+  <button
+    title={"connected to " + brokerURL}
+    class="rounded-full shadow-md my-auto mx-auto px-3 pl-8 py-2 relative"
+    ><span
+      class={`${getConnectionColor(connectionState)} text-2xl absolute top-0 left-3`}
+      >●</span
+    >
+    <p class="text-sm text-gray-600">{getConnectionText(connectionState)}</p>
+  </button>
 
   <section class="h-full flex flex-col overflow-hidden">
     <h2 class="text-xl font-medium">Sound Recordings</h2>
