@@ -5,8 +5,6 @@
 
   import mqtt from "mqtt";
 
-  let soundRecordings = [];
-
   let client;
   const blinkTopic = "juliah/blink";
   const soundTopic = "juliah/sound";
@@ -15,6 +13,9 @@
   // const brokerURL = "ws://localhost:8080";
 
   let connectionState = "pending";
+
+  let soundRecordings = [];
+  let wav_file = [];
 
   onMount(async () => {
     try {
@@ -40,31 +41,70 @@
     });
 
     client.on("message", (topic, message) => {
-      // message is Buffer
-      console.log(message.toString());
+      if (topic !== "juliah/sound") return;
 
-      let jsonMessage;
-      try {
-        jsonMessage = JSON.parse(message.toString());
-      } catch (e) {
-        console.log("Found invalid JSON message, discarding.", e);
-        return;
+      const preamble = message.readInt8(0);
+
+      switch (preamble) {
+        case 0: // beginning
+          console.log(message.subarray(1).toString());
+          const header = message.subarray(1).toString();
+
+          let headerJSON;
+          try {
+            headerJSON = JSON.parse(header);
+          } catch (e) {
+            console.log("Invalid JSON header, discarding.", e);
+            return;
+          }
+
+          const recording = {
+            // timestamp: jsonMessage.timestamp,
+            timestamp: Date.now(),
+            // peakVolume: jsonMessage.peakVolume,
+            peakVolume: Math.random() * 100,
+            audio:
+              headerJSON.audio ||
+              "https://www2.cs.uic.edu/~i101/SoundFiles/StarWars60.wav",
+          };
+          soundRecordings = [recording, ...soundRecordings];
+
+          wav_file = [];
+          break;
+        case 1: // file itself
+          wav_file.push(message.subarray(1));
+          break;
+        case 2: // end
+          const wav = Buffer.concat(wav_file);
+          console.log(wav);
+
+          const filename = "./audio.wav";
+          fs.writeFileSync(filename, wav);
+          console.log("Written to", filename);
+          break;
       }
 
-      console.log(topic);
+      // let jsonMessage;
+      // try {
+      //   jsonMessage = JSON.parse(message.toString());
+      // } catch (e) {
+      //   console.log("Found invalid JSON message, discarding.", e);
+      //   return;
+      // }
 
-      // { \"timestamp\": 100000000, \"peakVolume\": 43.4, \"audio\": \"\" }
-      const recording = {
-        // timestamp: jsonMessage.timestamp,
-        timestamp: Date.now(),
-        // peakVolume: jsonMessage.peakVolume,
-        peakVolume: Math.random() * 100,
-        audio:
-          jsonMessage.audio ||
-          "https://www2.cs.uic.edu/~i101/SoundFiles/StarWars60.wav",
-      };
+      // console.log(topic);
 
-      soundRecordings = [recording, ...soundRecordings];
+      // const recording = {
+      //   // timestamp: jsonMessage.timestamp,
+      //   timestamp: Date.now(),
+      //   // peakVolume: jsonMessage.peakVolume,
+      //   peakVolume: Math.random() * 100,
+      //   audio:
+      //     jsonMessage.audio ||
+      //     "https://www2.cs.uic.edu/~i101/SoundFiles/StarWars60.wav",
+      // };
+
+      // soundRecordings = [recording, ...soundRecordings];
       // client.end();
     });
   });
