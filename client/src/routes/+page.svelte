@@ -108,19 +108,20 @@
     grid-cols-1 grid-rows-[auto_1fr_auto]
     gap-x-10 gap-y-5"
 >
-  <h1 class="text-2xl lg:text-5xl font-bold text-gray-900">
-    JuLIAH <span class="text-gray-600 font-light">Just Leave It At Home</span>
-  </h1>
-
-  <button
-    title={"connected to " + brokerURL}
-    class="rounded-full shadow-md my-auto mx-auto px-3 pl-8 py-2 relative"
-    ><span
-      class={`${getConnectionColor(connectionState)} text-2xl absolute top-0 left-3`}
-      >●</span
-    >
-    <p class="text-sm text-gray-600">{getConnectionText(connectionState)}</p>
-  </button>
+  <header class="lg:col-span-2 grid grid-cols-subgrid items-center">
+    <h1 class="text-2xl lg:text-4xl font-bold text-gray-900">
+      JuLIAH <span class="text-gray-600 font-light">Just Leave It At Home</span>
+    </h1>
+    <button
+      title={"connected to " + brokerURL}
+      class="rounded-full shadow-md px-3 pl-8 py-2 relative mx-auto"
+      ><span
+        class={`${getConnectionColor(connectionState)} text-2xl absolute top-0 left-3`}
+        >●</span
+      >
+      <p class="text-sm text-gray-600">{getConnectionText(connectionState)}</p>
+    </button>
+  </header>
 
   <section class="h-full flex flex-col overflow-hidden">
     <h2 class="text-xl font-medium">Sound Recordings</h2>
