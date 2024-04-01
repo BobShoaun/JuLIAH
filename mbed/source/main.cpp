@@ -30,7 +30,7 @@
 // #include <chrono>
 // #include <ctime>
 
-#define NOISE_THRESHOLD 5000
+#define NOISE_THRESHOLD 6000
 #define FILE_CHUNK_SIZE 100
 
 DigitalOut led(LED1);
@@ -72,12 +72,12 @@ int16_t get_max_amplitude()
   return max_amplitude;
 }
 
-void send_audio_chunk(uint8_t preamble, void *buf, size_t buf_length)
+bool send_audio_chunk(uint8_t preamble, void *buf, size_t buf_length)
 {
   uint8_t *content_buf = (uint8_t *)buf;
   memmove(content_buf + 1, content_buf, buf_length - 1);
   *content_buf = preamble; // middle section
-  juliah_mqtt->send_message(sound_topic, content_buf, buf_length + 1);
+  return juliah_mqtt->send_message(sound_topic, content_buf, buf_length + 1);
 }
 
 // callback that gets invoked when TARGET_AUDIO_BUFFER is full
@@ -170,41 +170,57 @@ void target_audio_buffer_full()
 
 
   // Send header w preamble 0x00
-	string header_message;
-	header_message += "{ \"peakVolume\":";
-	header_message += std::to_string(max_amplitude);
-	header_message += "}";
+  string header_message;
+  header_message += "{ \"peakVolume\":";
+  header_message += std::to_string(max_amplitude);
+  header_message += "}";
 
 	std::cout << "header message: " << header_message << std::endl;
 
+  bool is_send_success = true;
+
 	char *header = new char[header_message.length() + 1]; 
   strcpy(header, header_message.c_str());
-  send_audio_chunk(0x00, (void *)header, header_message.length() + 1);
+  if (!send_audio_chunk(0x00, (void *)header, header_message.length() + 1)) {
+    printf("Failed to send audio packet, aborting...\n");
+	  delete[] header;
+    return;
+  }
 	delete[] header;
-  // const uint8_t start = 0x00;
-  // juliah_mqtt->send_message(sound_topic, (void*)&start, 1);
 
   // Send wav header w preamble 0x01
-  send_audio_chunk(0x01, wav_header, wav_header_length);
+  if (!send_audio_chunk(0x01, wav_header, wav_header_length)) {
+    printf("Failed to send audio header, aborting...\n");
+    return;
+  }
 
   // Send wav contents w preamble 0x01
   size_t offset;
-  for (offset = 0; offset < dataSize; offset += FILE_CHUNK_SIZE)
-    send_audio_chunk(0x01, buf + offset, FILE_CHUNK_SIZE);
+  for (offset = 0; offset < dataSize; offset += FILE_CHUNK_SIZE) {
+    if (!send_audio_chunk(0x01, buf + offset, FILE_CHUNK_SIZE)) {
+      printf("Failed to send audio content, continuing...\n");
+      return;
+    }
+  }
 
   const auto remaining_offset = offset - FILE_CHUNK_SIZE;
   const auto remaining_chunk_size = dataSize - remaining_offset;
   if (remaining_chunk_size > 0)
   {
     printf("Remaining chunk size: %d\n", remaining_chunk_size);
-    send_audio_chunk(0x01, buf + remaining_offset, remaining_chunk_size);
+
+    if (!send_audio_chunk(0x01, buf + remaining_offset, remaining_chunk_size)) {
+      printf("Failed to send audio content, continuing...\n");
+      return;
+    }
   }
 
   // Send footer w preamble 0x02
   const uint8_t end = 0x02;
-  juliah_mqtt->send_message(sound_topic, (void *)&end, 1);
-  // const auto footer = "end of audio file";
-  // send_audio_chunk(0x02, (void*)footer, 0);
+  if (!juliah_mqtt->send_message(sound_topic, (void *)&end, 1)) {
+    printf("Failed to send audio footer, aborting...\n");
+    return;
+  }
 
   printf("Recorded and sent audio\n");
 }
@@ -231,10 +247,7 @@ void BSP_AUDIO_IN_HalfTransfer_CallBack(uint32_t Instance)
   TARGET_AUDIO_BUFFER_IX += nb_samples;
 
   if (TARGET_AUDIO_BUFFER_IX >= TARGET_AUDIO_BUFFER_NB_SAMPLES)
-  {
     ev_queue->call(&target_audio_buffer_full);
-    return;
-  }
 }
 
 /**
@@ -260,10 +273,7 @@ void BSP_AUDIO_IN_TransferComplete_CallBack(uint32_t Instance)
   TARGET_AUDIO_BUFFER_IX += nb_samples;
 
   if (TARGET_AUDIO_BUFFER_IX >= TARGET_AUDIO_BUFFER_NB_SAMPLES)
-  {
     ev_queue->call(&target_audio_buffer_full);
-    return;
-  }
 }
 
 /**
@@ -340,21 +350,22 @@ bool setup_audio()
 }
 // MIC STUFF END
 
-void button_helper(){
-    is_recording = !is_recording;
-    led2 = is_recording;
+
+// handle Blue button click to toggle device state (recording ON or OFF)
+void button_handler(){
+  is_recording = !is_recording;
+  led2 = is_recording;
 }
 
-void to_record(){
-    if (is_recording){
-        ev_queue->call(start_recording);
-    }
+// try to record audio depending on state
+void try_record(){
+  if (is_recording)
+    ev_queue->call(start_recording);
 }
 
 
 int main()
 {
-  led2 = false;
   printf("========== JuLIAH: Hi ==========\n\n");
 
   while (!juliah_mqtt->setup())
@@ -367,15 +378,15 @@ int main()
   }
 
   printf("Press the BLUE button to record audio\n");
-  blue_button.rise(button_helper);
 
-  ev_queue->call_every(3s, to_record);
+  led2 = false;
+  blue_button.rise(button_handler);
+  ev_queue->call_every(3s, try_record);
 
-  while (true){
-
-      if (juliah_mqtt->has_message()){
-        juliah_mqtt->listen_message();
-      }
+  while (true) {
+    if (juliah_mqtt->has_message()){
+      juliah_mqtt->listen_message();
+    }
   }
 
   juliah_mqtt->cleanup();

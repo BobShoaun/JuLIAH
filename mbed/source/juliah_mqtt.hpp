@@ -23,6 +23,8 @@
 #include <string>
 #include <MQTTClientMbedOs.h>
 
+#define BLINK_TIME 5s
+
 
 #if MBED_CONF_APP_USE_TLS_SOCKET
 #include "root_ca_cert.h"
@@ -35,12 +37,11 @@
 const auto sound_topic = "juliah/sound";
 const auto blink_topic = "juliah/blink";
 const auto broker_hostname = "test.mosquitto.org";
-// const auto broker_hostname = "localhost";
 const auto broker_port = 1883;
 
 // led stuff
 DigitalOut led1(LED1);
-// MQTT helperfunc
+
 int arrivedcount = 0;
 
 // Helperfunc for blinking
@@ -51,15 +52,14 @@ void blink()
 
 static void messageArrived(MQTT::MessageData& md)
 {
-    ++arrivedcount;
+    // ++arrivedcount;
     MQTT::Message &message = md.message;
-    printf("Message arrived: qos %d, retained %d, dup %d, packetid %d\r\n", message.qos, message.retained, message.dup, message.id);
-    printf("Payload %.*s\r\n", message.payloadlen, (char*)message.payload);
 
-    // blink led1 every 1s for 10 times
+    printf("DISTRACT: Blinking the LED!\n");
+    led1 = true;
     EventQueue queue;
     queue.call_every(150ms, blink);
-    queue.dispatch_for(5s);
+    queue.dispatch_for(BLINK_TIME);
 }
 
 class JuLIAHMQTT {
@@ -120,7 +120,6 @@ public:
 
         socket.open(_net);
         SocketAddress addr;
-        // addr.set_ip_address("142.198.204.82");
         if (_net->gethostbyname(broker_hostname, &addr) != NSAPI_ERROR_OK) {
             printf("hostname error\n");
             return false;
@@ -147,7 +146,7 @@ public:
         return true;     
     }
 
-    void send_message(const char *pubTopic, void *message_buf, size_t message_length)
+    bool send_message(const char *pubTopic, void *message_buf, size_t message_length)
     {
         MQTT::Message message;
         message.qos = MQTT::QOS0;
@@ -156,7 +155,7 @@ public:
         message.payload = message_buf;
         message.payloadlen = message_length;
         int rc = client.publish(pubTopic, message);
-        // printf("rc from client publish is %d\n", rc); 
+        return rc == 0;
     }
 
     void listen_message() {
