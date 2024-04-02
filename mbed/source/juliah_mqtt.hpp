@@ -42,9 +42,6 @@ const auto broker_port = 1883;
 // led stuff
 DigitalOut led1(LED1);
 
-int arrivedcount = 0;
-
-// Helperfunc for blinking
 void blink()
 {
     led1 = !led1;
@@ -52,9 +49,6 @@ void blink()
 
 static void messageArrived(MQTT::MessageData& md)
 {
-    // ++arrivedcount;
-    MQTT::Message &message = md.message;
-
     printf("DISTRACT: Blinking the LED!\n");
     led1 = true;
     EventQueue queue;
@@ -154,17 +148,11 @@ public:
         message.dup = false;
         message.payload = message_buf;
         message.payloadlen = message_length;
-        int rc = client.publish(pubTopic, message);
-        return rc == 0;
+        return client.publish(pubTopic, message) == 0;
     }
 
-    void listen_message() {
+    void yield_to_listen() {
         client.yield(100);
-        --arrivedcount;
-    }
-
-    bool has_message() {
-        return arrivedcount < 1;
     }
 
     void cleanup() {

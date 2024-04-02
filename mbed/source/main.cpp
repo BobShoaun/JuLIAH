@@ -27,10 +27,8 @@
 #include <string>
 #include "mbed.h"
 
-// #include <chrono>
-// #include <ctime>
 
-#define NOISE_THRESHOLD 6000
+#define NOISE_THRESHOLD 6500
 #define FILE_CHUNK_SIZE 100
 
 DigitalOut led(LED1);
@@ -93,8 +91,8 @@ void target_audio_buffer_full()
 
   // create WAV file
   size_t wavFreq = AUDIO_SAMPLING_FREQUENCY;
-  size_t dataSize = (TARGET_AUDIO_BUFFER_NB_SAMPLES * 2);
-  size_t fileSize = 44 + (TARGET_AUDIO_BUFFER_NB_SAMPLES * 2);
+  size_t dataSize = TARGET_AUDIO_BUFFER_NB_SAMPLES * 2;
+  size_t fileSize = 44 + dataSize;
 
   const auto wav_header_length = 44;
 
@@ -145,7 +143,6 @@ void target_audio_buffer_full()
       static_cast<uint8_t>((dataSize >> 24) & 0xff),
   };
 
-  printf("Total complete events: %lu, index is %lu\n", transfer_complete_events, TARGET_AUDIO_BUFFER_IX);
 
   const auto max_amplitude = get_max_amplitude();
   if (max_amplitude < NOISE_THRESHOLD)
@@ -161,23 +158,20 @@ void target_audio_buffer_full()
     printf("%02x", wav_header[ix]);
   printf("\n");
 
-  uint8_t *buf = (uint8_t *)TARGET_AUDIO_BUFFER;
+  auto *buf = (uint8_t *)TARGET_AUDIO_BUFFER;
   for (size_t ix = 0; ix < dataSize; ix++)
     if (ix < 1000) // only print first 1000 bytes
       printf("%02x", buf[ix]);
-
   printf("\n");
 
 
   // Send header w preamble 0x00
   string header_message;
-  header_message += "{ \"peakVolume\":";
+  header_message += "{ \"peakValue\":";
   header_message += std::to_string(max_amplitude);
   header_message += "}";
 
 	std::cout << "header message: " << header_message << std::endl;
-
-  bool is_send_success = true;
 
 	char *header = new char[header_message.length() + 1]; 
   strcpy(header, header_message.c_str());
@@ -383,11 +377,8 @@ int main()
   blue_button.rise(button_handler);
   ev_queue->call_every(3s, try_record);
 
-  while (true) {
-    if (juliah_mqtt->has_message()){
-      juliah_mqtt->listen_message();
-    }
-  }
+  while (true)
+    juliah_mqtt->yield_to_listen();
 
   juliah_mqtt->cleanup();
 

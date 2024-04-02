@@ -65,7 +65,7 @@
 
           recording = {
             timestamp: Date.now(),
-            peakVolume: headerJSON.peakVolume,
+            peakValue: headerJSON.peakValue,
             // audio: "https://www2.cs.uic.edu/~i101/SoundFiles/StarWars60.wav",
             audio: "",
           };

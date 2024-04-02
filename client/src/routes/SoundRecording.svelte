@@ -2,19 +2,21 @@
   export let soundRecording;
   export let onDelete;
 
-  const { timestamp, audio, peakVolume } = soundRecording;
+  const refAmplitude = 1;
+  const toDecibel = (value) => 20 * Math.log10(value / refAmplitude);
+
+  const { timestamp, audio, peakValue } = soundRecording;
 </script>
 
 <div class="flex px-4 text-gray-500 pt-2 gap-2">
   <p class="text-sm">{new Date(timestamp)}</p>
   <p class="text-sm ml-auto text-right">
-    Peak volume: {peakVolume.toFixed(2)} db
+    Detection Volume: {toDecibel(peakValue).toFixed(2)} dB
   </p>
 </div>
 
 <div class="flex">
   <audio controls class="basis-full -mr-3">
-    <!-- <source src="horse.ogg" type="audio/ogg" /> -->
     <source src={audio} type="audio/mpeg" />
     Your browser does not support the audio element.
   </audio>

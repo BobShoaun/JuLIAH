@@ -1,8 +1,67 @@
 # JuLIAH
 
-Group Project for CSC385
+![JuLIAH web interface](./juliah.png)
+
+She is a personal assistant that watches over your home alone pet, and sends distractions their way when necesasary!
+
+# Structure
+
+The project is structured into two main programs:
+
+- The Mbed project (mbed folder)
+- The client project (client folder)
+
+The other folders are for miscellaneous testing, and progress reports.
+
+# Contributors
+
+This project started as a group Project for CSC385: Microprocessor Systems
+
+Collaborators:
+
+- Bob Shoaun Ng
+- Dian Rong
+- Max Wang
+- Rohan
+
+# Mbed Project
+
+## Setup
+
+1. Open the mbed/ folder in Mbed studio
+2. In the "Libraries" tab, make sure all libraries are fixed, there should be 3 listed:
+
+- COMPONENT_ism43362 master
+- mbed-mqtt master
+- mbed-os 6.17.0
+
+3. Open "mbed_app.json", and change the "nsapi.default-wifi-ssid" and "nsapi.default-wifi-password" target overrides to your local Wifi network's credentials.
+4. Connect a discovery board and select it as target.
+5. Build and Run the program.
+
+## Run
+
+1. Build and Run the program.
+
+# JuLIAH Client
+
+## Setup
+
+1. Open client/ folder in a code editor of choice.
+2. In terminal, run `npm install` to install dependencies.
+
+## Run (Development)
+
+1. In terminal, run `npm run dev` to locally host the client.
+2. Navigate to `http://localhost:5173` in a browser to view.
+
+## Build and deploy
+
+1. In terminal, run `npm run deploy`, this command will build and then deploy the website to github pages.
 
 # Mosquitto Broker
+
+Download the broker from https://mosquitto.org/download/
 
 ## run on WSL
 
@@ -20,34 +79,19 @@ mosquitto_sub -h localhost -t test
 
 mosquitto_pub -h localhost -t test -m "hello world"
 
-# Mosquitto Client (Javascript)
-
-### run client
-
-cd client-web
-npm run dev
-
 # Testing
+
+using online mqtt broker:
+https://testclient-cloud.mqtt.cool/
 
 ### publish mqtt for sound topic
 
-mosquitto_pub -h test.mosquitto.org -t juliah/sound -m "{ \"timestamp\":10000000, \"peakVolume\": 43.4, \"audio\": \"\" }"
+mosquitto_pub -h test.mosquitto.org -t juliah/sound -m "{ \"timestamp\":10000000, \"peakValue\": 8000 }"
 
-### publish mqtt for blink topic 
+### publish mqtt for blink topic
 
 mosquitto_pub -h test.mosquitto.org -t juliah/blink -m "BLINK MESSAGE"
 
-### subscrive mqtt sound topic
+### subscribe mqtt sound topic
 
 mosquitto_sub -h test.mosquitto.org -t juliah/sound
-
-### online mqtt client
-
-https://testclient-cloud.mqtt.cool/
-
-## UI todos
-
-- waveform visualization for sound recordings
-- use card like ui for each sound
-- notifications (push)
-- LED blinker UI for feedback in app
