@@ -13,11 +13,20 @@ The project is structured into two main programs:
 
 The other folders are for miscellaneous testing, and progress reports.
 
+# Tech Stack
+
+- STM32L4 Discovery kit
+- Mbed (C++)
+- Mosquitto
+- Svelte (HTML + JS)
+- Tailwindcss
+- Github Pages
+
 # Contributors
 
 This project started as a group Project for CSC385: Microprocessor Systems
 
-Collaborators:
+Team members:
 
 - Bob Shoaun Ng
 - Dian Rong
@@ -43,7 +52,9 @@ Collaborators:
 
 1. Build and Run the program.
 
-# JuLIAH Client
+# Web Client
+
+It is a simple interface to view all audio recordings louder than a certain volume, and to send a distract signal to the device at home. It acts as a MQTT client connected to the MQTT broker to send and receive messages. The deployed web client is hosted and accessible here: https://bobshoaun.github.io/JuLIAH/
 
 ## Setup
 
