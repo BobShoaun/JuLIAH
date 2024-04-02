@@ -37,14 +37,14 @@ Team members:
 
 ## Setup
 
-1. Open the mbed/ folder in Mbed studio
+1. Open the `mbed/` folder in Mbed studio
 2. In the "Libraries" tab, make sure all libraries are fixed, there should be 3 listed:
 
 - COMPONENT_ism43362 master
 - mbed-mqtt master
 - mbed-os 6.17.0
 
-3. Open "mbed_app.json", and change the "nsapi.default-wifi-ssid" and "nsapi.default-wifi-password" target overrides to your local Wifi network's credentials.
+3. Open `mbed_app.json`, and change the `nsapi.default-wifi-ssid` and `nsapi.default-wifi-password` target overrides to your local Wifi network's credentials.
 4. Connect a discovery board and select it as target.
 5. Build and Run the program.
 
@@ -58,7 +58,7 @@ It is a simple interface to view all audio recordings louder than a certain volu
 
 ## Setup
 
-1. Open client/ folder in a code editor of choice.
+1. Open `client/` folder in a code editor of choice.
 2. In terminal, run `npm install` to install dependencies.
 
 ## Run (Development)
