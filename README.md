@@ -72,37 +72,45 @@ It is a simple interface to view all audio recordings louder than a certain volu
 
 # Mosquitto Broker
 
+This project uses an existing MQTT broker https://test.mosquitto.org/ provided by Mosquitto. However, you can also choose to host your own broker.
+
 Download the broker from https://mosquitto.org/download/
 
 ## run on WSL
 
-mosquitto
+`mosquitto`
 
 ## run using config
 
-mosquitto -c /etc/mosquitto/mosquitto.conf
+`mosquitto -c /etc/mosquitto/mosquitto.conf`
 
 ### subscribe to test topic (server)
 
-mosquitto_sub -h localhost -t test
+`mosquitto_sub -h localhost -t test`
 
 ### publish message to test topic (client)
 
-mosquitto_pub -h localhost -t test -m "hello world"
+`mosquitto_pub -h localhost -t test -m "hello world"`
+
+# Troubleshooting
+
+Sometimes, the Mbed program might hang, simply restart the program using the black button on the discovery board if that happens.
+
+Sometimes, the web client might indicate that it is disconnected from the MQTT broker (top right), simply refresh the page.
 
 # Testing
 
-using online mqtt broker:
+Online mqtt client:
 https://testclient-cloud.mqtt.cool/
 
 ### publish mqtt for sound topic
 
-mosquitto_pub -h test.mosquitto.org -t juliah/sound -m "{ \"timestamp\":10000000, \"peakValue\": 8000 }"
+`mosquitto_pub -h test.mosquitto.org -t juliah/sound -m "{ \"timestamp\":10000000, \"peakValue\": 8000 }"`
 
 ### publish mqtt for blink topic
 
-mosquitto_pub -h test.mosquitto.org -t juliah/blink -m "BLINK MESSAGE"
+`mosquitto_pub -h test.mosquitto.org -t juliah/blink -m "BLINK MESSAGE"`
 
 ### subscribe mqtt sound topic
 
-mosquitto_sub -h test.mosquitto.org -t juliah/sound
+`mosquitto_sub -h test.mosquitto.org -t juliah/sound`
