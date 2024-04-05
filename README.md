@@ -4,6 +4,10 @@
 
 She is a personal assistant that watches over your home alone pet, and sends distractions their way when necesasary!
 
+# Video Demo
+
+https://youtu.be/DJRzFLfUhz4
+
 # Structure
 
 The project is structured into two main programs:
